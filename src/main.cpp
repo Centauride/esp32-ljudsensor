@@ -90,12 +90,17 @@ void setup() {
   strip.setBrightness(50);
 
   setupI2S();
+
+  Serial.println("SETUP FINISHED ---------------------- AAAA");
+
 }
 
 void loop() {
   uint32_t level = readSoundRMS();
 
   Serial.println(level); // handy for tuning the thresholds above
+  Serial.println("AAAAAAAAAAAAAAAAAAA");
+
 
   if (level < THRESHOLD_QUIET_TO_NORMAL) {
     setLedColor(255, 255, 0);   // yellow - silence / negligible
