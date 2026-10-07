@@ -20,9 +20,6 @@ Adafruit_NeoPixel strip(NUM_PIXELS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 #define I2S_READ_LEN    512          // samples per read (int32_t each)
 
 // ---------- Sound thresholds ----------
-// RMS values of the raw 32-bit I2S samples (INMP441 data sits in the
-// upper 24 bits, so silence hovers near 0 and louder sounds push the
-// RMS up). Tune these to your room / mic gain using the Serial Monitor.
 #define THRESHOLD_QUIET_TO_NORMAL   2000    // below this -> yellow (silence/negligible)
 #define THRESHOLD_NORMAL_TO_LOUD    15000   // above this -> red (too noisy)
 // between the two -> orange (normal conversation)
@@ -51,14 +48,33 @@ void setupI2S() {
     .data_in_num = I2S_DIN_PIN
   };
 
-  i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
-  i2s_set_pin(I2S_PORT, &pin_config);
+  esp_err_t install_res = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  esp_err_t pin_res = i2s_set_pin(I2S_PORT, &pin_config);
+
+  Serial.print("i2s_driver_install res=");
+  Serial.println(install_res);
+  Serial.print("i2s_set_pin res=");
+  Serial.println(pin_res);
 }
 
 // Reads a block of samples and returns their RMS amplitude
 uint32_t readSoundRMS() {
   size_t bytes_read = 0;
   esp_err_t res = i2s_read(I2S_PORT, i2s_buffer, sizeof(i2s_buffer), &bytes_read, portMAX_DELAY);
+
+  // --- DEBUG: remove once things are working ---
+  Serial.print("res=");
+  Serial.print(res);
+  Serial.print(" bytes_read=");
+  Serial.print(bytes_read);
+  Serial.print(" raw[0..3]=");
+  for (int i = 0; i < 4; i++) {
+    Serial.print(i2s_buffer[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
+  // --- end debug ---
+
   if (res != ESP_OK || bytes_read == 0) {
     return 0;
   }
@@ -67,8 +83,6 @@ uint32_t readSoundRMS() {
   int64_t sum_sq = 0;
 
   for (int i = 0; i < samples_read; i++) {
-    // Data sits in the upper bits of the 32-bit word; shift down to get
-    // a usable 24-bit signed value.
     int32_t sample = i2s_buffer[i] >> 8;
     sum_sq += (int64_t)sample * (int64_t)sample;
   }
@@ -84,6 +98,7 @@ void setLedColor(uint32_t r, uint32_t g, uint32_t b) {
 
 void setup() {
   Serial.begin(115200);
+  delay(1000); // give Serial a moment to connect before printing
 
   strip.begin();
   strip.show();
@@ -91,16 +106,14 @@ void setup() {
 
   setupI2S();
 
-  Serial.println("SETUP FINISHED ---------------------- AAAA");
-
+  Serial.println("SETUP FINISHED");
 }
 
 void loop() {
   uint32_t level = readSoundRMS();
 
-  Serial.println(level); // handy for tuning the thresholds above
-  Serial.println("AAAAAAAAAAAAAAAAAAA");
-
+  Serial.print("level=");
+  Serial.println(level);
 
   if (level < THRESHOLD_QUIET_TO_NORMAL) {
     setLedColor(255, 255, 0);   // yellow - silence / negligible
@@ -110,5 +123,5 @@ void loop() {
     setLedColor(255, 0, 0);     // red - too noisy
   }
 
-  delay(100); // small pause between readings, keeps LEDs responsive but not flickery
+  delay(300); // slower loop so Serial output is readable
 }
