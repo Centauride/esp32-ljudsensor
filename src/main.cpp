@@ -20,7 +20,7 @@ Adafruit_NeoPixel strip(NUM_PIXELS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 // ---------- Sound thresholds (PLACEHOLDER - recalibrate after this test) ----------
 #define THRESHOLD_QUIET_TO_NORMAL   40000    // below this -> yellow (silence/negligible)
-#define THRESHOLD_NORMAL_TO_LOUD    90000    // above this -> red (too noisy)
+#define THRESHOLD_NORMAL_TO_LOUD    130000    // above this -> red (too noisy)
 // between the two -> orange (normal conversation)
 
 // Smoothing factor: lower = smoother/slower to react, higher = snappier/noisier
