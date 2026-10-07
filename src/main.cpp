@@ -75,8 +75,24 @@ uint32_t readRawRMS() {
   return (uint32_t)sqrt(mean_sq);
 }
 
-void setLedColor(uint32_t r, uint32_t g, uint32_t b) {
-  strip.fill(strip.Color(r, g, b));
+void updateLedBar(uint32_t level) {
+  // LED 0: green, always on as a baseline/power indicator
+  strip.setPixelColor(0, strip.Color(0, 255, 0));
+
+  // LED 1: orange, turns on once we're at normal conversation level or louder
+  if (level >= THRESHOLD_QUIET_TO_NORMAL) {
+    strip.setPixelColor(1, strip.Color(255, 100, 0));
+  } else {
+    strip.setPixelColor(1, strip.Color(0, 0, 0));
+  }
+
+  // LED 2: red, turns on once it's too noisy
+  if (level >= THRESHOLD_NORMAL_TO_LOUD) {
+    strip.setPixelColor(2, strip.Color(255, 0, 0));
+  } else {
+    strip.setPixelColor(2, strip.Color(0, 0, 0));
+  }
+
   strip.show();
 }
 
@@ -105,13 +121,7 @@ void loop() {
   Serial.print(" smoothed=");
   Serial.println(level);
 
-  if (level < THRESHOLD_QUIET_TO_NORMAL) {
-    setLedColor(0, 255, 0);     // green - silence / negligible
-  } else if (level < THRESHOLD_NORMAL_TO_LOUD) {
-    setLedColor(255, 100, 0);   // orange - normal conversation
-  } else {
-    setLedColor(255, 0, 0);     // red - too noisy
-  }
+  updateLedBar(level);
 
   delay(100);
 }
