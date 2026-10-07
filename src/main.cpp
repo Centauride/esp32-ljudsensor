@@ -13,25 +13,28 @@ Adafruit_NeoPixel strip(NUM_PIXELS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 #define I2S_WS_PIN     4   // WS   (word select / L-R clock)
 #define I2S_DIN_PIN    3   // SD   (data out from mic into ESP32 RX)
 
-// INMP441: tie L/R pin to GND -> mic outputs on the LEFT channel
-
+// This specific INMP441 board outputs on the RIGHT channel with L/R tied to GND
 #define I2S_PORT        I2S_NUM_0
 #define SAMPLE_RATE     16000
 #define I2S_READ_LEN    512          // samples per read (int32_t each)
 
-// ---------- Sound thresholds ----------
-#define THRESHOLD_QUIET_TO_NORMAL   2000    // below this -> yellow (silence/negligible)
-#define THRESHOLD_NORMAL_TO_LOUD    30000   // above this -> red (too noisy)
+// ---------- Sound thresholds (PLACEHOLDER - recalibrate after this test) ----------
+#define THRESHOLD_QUIET_TO_NORMAL   40000    // below this -> yellow (silence/negligible)
+#define THRESHOLD_NORMAL_TO_LOUD    90000    // above this -> red (too noisy)
 // between the two -> orange (normal conversation)
 
+// Smoothing factor: lower = smoother/slower to react, higher = snappier/noisier
+#define SMOOTHING_ALPHA   0.2
+
 int32_t i2s_buffer[I2S_READ_LEN];
+double smoothed_level = 0;
 
 void setupI2S() {
   i2s_config_t i2s_config = {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
     .sample_rate = SAMPLE_RATE,
     .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
-    .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,   // TEST: try RIGHT if LEFT reads flat 0/1
+    .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,   // confirmed working channel
     .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 4,
@@ -48,33 +51,14 @@ void setupI2S() {
     .data_in_num = I2S_DIN_PIN
   };
 
-  esp_err_t install_res = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
-  esp_err_t pin_res = i2s_set_pin(I2S_PORT, &pin_config);
-
-  Serial.print("i2s_driver_install res=");
-  Serial.println(install_res);
-  Serial.print("i2s_set_pin res=");
-  Serial.println(pin_res);
+  i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  i2s_set_pin(I2S_PORT, &pin_config);
 }
 
-// Reads a block of samples and returns their RMS amplitude
-uint32_t readSoundRMS() {
+// Reads a block of samples and returns their raw RMS amplitude (no smoothing)
+uint32_t readRawRMS() {
   size_t bytes_read = 0;
   esp_err_t res = i2s_read(I2S_PORT, i2s_buffer, sizeof(i2s_buffer), &bytes_read, portMAX_DELAY);
-
-  // --- DEBUG: remove once things are working ---
-  Serial.print("res=");
-  Serial.print(res);
-  Serial.print(" bytes_read=");
-  Serial.print(bytes_read);
-  Serial.print(" raw[0..3]=");
-  for (int i = 0; i < 4; i++) {
-    Serial.print(i2s_buffer[i]);
-    Serial.print(" ");
-  }
-  Serial.println();
-  // --- end debug ---
-
   if (res != ESP_OK || bytes_read == 0) {
     return 0;
   }
@@ -98,7 +82,7 @@ void setLedColor(uint32_t r, uint32_t g, uint32_t b) {
 
 void setup() {
   Serial.begin(115200);
-  delay(1000); // give Serial a moment to connect before printing
+  delay(1000);
 
   strip.begin();
   strip.show();
@@ -110,18 +94,24 @@ void setup() {
 }
 
 void loop() {
-  uint32_t level = readSoundRMS();
+  uint32_t raw_level = readRawRMS();
 
-  Serial.print("level=");
+  // Exponential moving average smoothing
+  smoothed_level = (SMOOTHING_ALPHA * raw_level) + ((1 - SMOOTHING_ALPHA) * smoothed_level);
+  uint32_t level = (uint32_t)smoothed_level;
+
+  Serial.print("raw=");
+  Serial.print(raw_level);
+  Serial.print(" smoothed=");
   Serial.println(level);
 
   if (level < THRESHOLD_QUIET_TO_NORMAL) {
-    setLedColor(255, 255, 0);   // yellow - silence / negligible
+    setLedColor(0, 255, 0);     // green - silence / negligible
   } else if (level < THRESHOLD_NORMAL_TO_LOUD) {
     setLedColor(255, 100, 0);   // orange - normal conversation
   } else {
     setLedColor(255, 0, 0);     // red - too noisy
   }
 
-  delay(300); // slower loop so Serial output is readable
+  delay(100);
 }
