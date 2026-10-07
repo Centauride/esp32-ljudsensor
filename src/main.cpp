@@ -21,7 +21,7 @@ Adafruit_NeoPixel strip(NUM_PIXELS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 
 // ---------- Sound thresholds ----------
 #define THRESHOLD_QUIET_TO_NORMAL   2000    // below this -> yellow (silence/negligible)
-#define THRESHOLD_NORMAL_TO_LOUD    15000   // above this -> red (too noisy)
+#define THRESHOLD_NORMAL_TO_LOUD    30000   // above this -> red (too noisy)
 // between the two -> orange (normal conversation)
 
 int32_t i2s_buffer[I2S_READ_LEN];
@@ -31,7 +31,7 @@ void setupI2S() {
     .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
     .sample_rate = SAMPLE_RATE,
     .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
-    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,   // INMP441 L/R tied to GND
+    .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,   // TEST: try RIGHT if LEFT reads flat 0/1
     .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 4,
