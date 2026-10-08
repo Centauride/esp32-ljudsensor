@@ -6,6 +6,7 @@
 
 AudioSensor audioSensor;
 LedIndicator ledIndicator;
+SettingsServer settingsServer;
 
 void setup() {
   Serial.begin(115200);
@@ -13,6 +14,7 @@ void setup() {
 
   ledIndicator.begin();
   audioSensor.begin();
+  settingsServer.begin(ledIndicator); // connects WiFi (shows loading animation), prints the IP to visit
 
   Serial.println("SETUP FINISHED");
 }
@@ -20,10 +22,9 @@ void setup() {
 void loop() {
   uint32_t level = audioSensor.update();
 
-  Serial.print("level=");
-  Serial.println(level);
-
   ledIndicator.update(level);
+  settingsServer.setCurrentLevel(level);
+  settingsServer.handleClient(); // must be called often, keeps the web server responsive
 
-  delay(100);
+  delay(50);
 }

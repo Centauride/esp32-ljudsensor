@@ -3,8 +3,8 @@
 
 // ---------- WiFi ----------
 // Fill these in with your network credentials before building.
-#define WIFI_SSID       "YOUR_WIFI_NAME" // ! TODO : HIDE IT AFTER TESTING
-#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD" // ! TODO : HIDE IT AFTER TESTING
+#define WIFI_SSID       "YOUR_WIFI_NAME"
+#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
 
 // ---------- NeoPixel ----------
 #define LED_STRIP_PIN  5
@@ -25,10 +25,10 @@
 
 // ---------- LED colors (0xRRGGBB) ----------
 #define COLOR_BASELINE   0x00FF00   // green
-#define COLOR_BASELINE   0x9F2B68   // purple
 #define COLOR_NORMAL     0xFF6400   // orange
 #define COLOR_LOUD       0xFF0000   // red
 #define COLOR_OFF        0x000000   // off
+#define COLOR_LOADING    0x9F2B68   // purple, used while connecting to WiFi
 
 // ---------- Sound thresholds ----------
 // These are now RUNTIME-adjustable (via the web UI), so they're plain
