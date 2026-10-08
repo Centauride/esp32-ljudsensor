@@ -1,5 +1,5 @@
 #pragma once
-#include "./include/Config.h"
+#include "Config.h"
 #include <Adafruit_NeoPixel.h>
 
 // Wraps the 3-LED NeoPixel bar: LED0 = baseline green, LED1 = orange

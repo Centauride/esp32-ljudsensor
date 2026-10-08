@@ -1,5 +1,5 @@
-#include "./include/LedIndicator.h"
-#include "./include/Config.h"
+#include "LedIndicator.h"
+#include "Config.h"
 
 void LedIndicator::begin() {
   _strip.begin();

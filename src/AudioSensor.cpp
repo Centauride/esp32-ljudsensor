@@ -1,5 +1,5 @@
-#include "./include/AudioSensor.h"
-#include "./include/Config.h"
+#include "AudioSensor.h"
+#include "Config.h"
 #include "driver/i2s.h"
 
 #define I2S_PORT I2S_NUM_0

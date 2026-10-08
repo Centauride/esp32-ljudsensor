@@ -1,7 +1,8 @@
 #include <Arduino.h>
-#include "./include/Config.h"
-#include "./include/AudioSensor.h"
-#include "./include/LedIndicator.h"
+#include "Config.h"
+#include "AudioSensor.h"
+#include "LedIndicator.h"
+#include "SettingsServer.h"
 
 AudioSensor audioSensor;
 LedIndicator ledIndicator;
