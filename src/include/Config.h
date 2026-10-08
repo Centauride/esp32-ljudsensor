@@ -20,3 +20,10 @@
 // ---------- Smoothing ----------
 // Exponential moving average factor: lower = smoother/slower, higher = snappier/noisier
 #define SMOOTHING_ALPHA   0.2
+
+// ---------- LED colors (0xRRGGBB) ----------
+// #define COLOR_BASELINE   0x00FF00   // green
+#define COLOR_BASELINE   0x9F2B68   // purple
+#define COLOR_NORMAL     0xFF6400   // orange
+#define COLOR_LOUD       0xFF0000   // red
+#define COLOR_OFF        0x000000   // off
