@@ -14,7 +14,9 @@ void setup() {
 
   ledIndicator.begin();
   audioSensor.begin();
-  settingsServer.begin(ledIndicator); // connects WiFi (shows loading animation), prints the IP to visit
+  if (!settingsServer.begin(ledIndicator)) {
+    Serial.println("Running WITHOUT web UI (WiFi unavailable). Thresholds use defaults.");
+  }
 
   Serial.println("SETUP FINISHED");
 }

@@ -3,8 +3,9 @@
 
 // ---------- WiFi ----------
 // Fill these in with your network credentials before building.
-#define WIFI_SSID       "YOUR_WIFI_NAME"
-#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID       "OK"
+#define WIFI_PASSWORD   "OK"
+#define WIFI_CONNECT_TIMEOUT_MS  20000  // give up after this long and run without the web UI
 
 // ---------- NeoPixel ----------
 #define LED_STRIP_PIN  5

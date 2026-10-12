@@ -74,10 +74,25 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-void SettingsServer::begin(LedIndicator &ledIndicator) {
+bool SettingsServer::begin(LedIndicator &ledIndicator) {
+  WiFi.mode(WIFI_STA);
+  // Some ESP32-C3 mini boards have weak antennas and fail to connect at full
+  // TX power; lowering it is a known fix. Remove if it causes range problems.
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   Serial.print("Connecting to WiFi");
+  unsigned long startMs = millis();
   while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - startMs > WIFI_CONNECT_TIMEOUT_MS) {
+      Serial.println();
+      Serial.print("WiFi connection FAILED, status code: ");
+      Serial.println(WiFi.status());
+      Serial.println("  1 = SSID not found (wrong name, or network is 5GHz-only)");
+      Serial.println("  4 = connect failed (usually wrong password)");
+      Serial.println("  6 = disconnected / auth problem");
+      return false;
+    }
     delay(150);
     ledIndicator.showLoadingStep();
     Serial.print(".");
@@ -90,9 +105,12 @@ void SettingsServer::begin(LedIndicator &ledIndicator) {
   _server.on("/status", [this]() { handleStatus(); });
   _server.on("/set", [this]() { handleSet(); });
   _server.begin();
+  _running = true;
+  return true;
 }
 
 void SettingsServer::handleClient() {
+  if (!_running) return;
   _server.handleClient();
 }
 
