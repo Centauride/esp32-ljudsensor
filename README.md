@@ -32,11 +32,11 @@ from a web page hosted by the ESP32 itself.
 ## Setup
 
 1. Open this folder as a PlatformIO project (`platformio.ini` at the root).
-2. In `Config.h`, set your WiFi credentials:
-   ```cpp
-   #define WIFI_SSID       "your_wifi_name"
-   #define WIFI_PASSWORD   "your_wifi_password"
+2. Create your own WiFi credentials file (it is gitignored, so it is never pushed):
+   ```bash
+   cp include/Secrets.h.example include/Secrets.h
    ```
+   Then edit `include/Secrets.h` and set your network name and password.
 3. Build and upload (PlatformIO sidebar → Upload, or the → icon in the status bar).
 4. Open Serial Monitor (115200 baud) — it prints the IP address to visit, e.g.:
    ```
@@ -49,7 +49,8 @@ from a web page hosted by the ESP32 itself.
 
 | File | Responsibility |
 |---|---|
-| `Config.h` / `Config.cpp` | Pins, colors, WiFi credentials, tunable thresholds |
+| `Config.h` / `Config.cpp` | Pins, colors, tunable thresholds |
+| `Secrets.h` (gitignored) | Your WiFi credentials, copied from `Secrets.h.example` |
 | `AudioSensor.h` / `.cpp` | I2S mic driver + smoothed RMS sound level |
 | `LedIndicator.h` / `.cpp` | Drives the 3-LED bar graph from a sound level |
 | `SettingsServer.h` / `.cpp` | Hosts the web UI for live threshold tuning |

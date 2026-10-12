@@ -2,9 +2,13 @@
 #include <Arduino.h>
 
 // ---------- WiFi ----------
-// Fill these in with your network credentials before building.
-#define WIFI_SSID       "OK"
-#define WIFI_PASSWORD   "OK"
+// WIFI_SSID and WIFI_PASSWORD live in Secrets.h, which is gitignored.
+// Each dev copies Secrets.h.example to Secrets.h and fills in their own.
+#if !__has_include("Secrets.h")
+  #error "Missing Secrets.h: copy include/Secrets.h.example to include/Secrets.h and fill in your WiFi credentials."
+#endif
+#include "Secrets.h"
+
 #define WIFI_CONNECT_TIMEOUT_MS  20000  // give up after this long and run without the web UI
 
 // ---------- NeoPixel ----------
