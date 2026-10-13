@@ -52,6 +52,10 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     .level-box { margin-top: 24px; padding: 16px; border-radius: 8px; background: var(--card); text-align: center; }
     .level-number { font-size: 2rem; font-weight: bold; }
 
+    button { margin-top: 24px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px;
+             background: var(--card); color: var(--fg); font-size: 0.95rem; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+
     /* dark mode switch */
     .switch { display: inline-flex; align-items: center; gap: 8px; position: relative;
               font-size: 0.85rem; color: var(--muted); cursor: pointer; user-select: none; }
@@ -89,6 +93,8 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
   <label class="field">Normal &rarr; Loud threshold <span class="value" id="loudVal"></span></label>
   <input type="range" id="loudSlider" min="0" max="2000000" step="1000">
 
+  <button id="resetBtn" type="button">Reset thresholds</button>
+
   <script>
     const quietSlider = document.getElementById('quietSlider');
     const loudSlider = document.getElementById('loudSlider');
@@ -96,12 +102,15 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     const loudVal = document.getElementById('loudVal');
     const currentLevel = document.getElementById('currentLevel');
     const themeToggle = document.getElementById('themeToggle');
+    const resetBtn = document.getElementById('resetBtn');
     const canvas = document.getElementById('chart');
     const ctx = canvas.getContext('2d');
 
     const POLL_MS = 250;
     const HISTORY = 240;          // points kept (about 60 s at 250 ms)
     const history = [];
+    const SLIDER_MAX = 2000000;
+    let minGap = 10000;           // replaced by the firmware's value on first load
 
     // ----- theme switch -----
     themeToggle.checked = document.documentElement.dataset.theme !== 'light';
@@ -182,9 +191,45 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       }, 150); // small debounce so dragging doesn't spam requests
     }
 
-    quietSlider.oninput = () => { quietVal.textContent = quietSlider.value; scheduleSend(); draw(); };
-    loudSlider.oninput  = () => { loudVal.textContent = loudSlider.value; scheduleSend(); draw(); };
+    function updateLabels() {
+      quietVal.textContent = quietSlider.value;
+      loudVal.textContent = loudSlider.value;
+    }
+
+    // The loud threshold always stays at least minGap above the quiet one:
+    // raising the quiet slider pushes it up, and it can't be dragged below that limit.
+    function keepGap() {
+      const minLoud = Number(quietSlider.value) + minGap;
+      if (Number(loudSlider.value) < minLoud) loudSlider.value = minLoud;
+    }
+
+    function onSliderInput() {
+      keepGap();
+      updateLabels();
+      scheduleSend();
+      draw();
+    }
+    quietSlider.oninput = onSliderInput;
+    loudSlider.oninput = onSliderInput;
     window.onresize = draw;
+
+    // Move the sliders to whatever values the firmware reports
+    function applyServerValues(data) {
+      minGap = data.minGap;
+      quietSlider.max = SLIDER_MAX - minGap;   // leaves room for loud to stay above it
+      quietSlider.value = data.thresholdQuiet;
+      loudSlider.value = data.thresholdLoud;
+      updateLabels();
+    }
+
+    resetBtn.onclick = async () => {
+      clearTimeout(sendTimer);                 // drop any pending slider update
+      try {
+        const res = await fetch('/reset');
+        applyServerValues(await res.json());
+        draw();
+      } catch (e) { /* ignore, user can press again */ }
+    };
 
     // ----- live polling -----
     async function poll() {
@@ -198,10 +243,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 
         // only set slider positions on first load, so we don't fight the user's drag
         if (!poll.initialized) {
-          quietSlider.value = data.thresholdQuiet;
-          loudSlider.value = data.thresholdLoud;
-          quietVal.textContent = data.thresholdQuiet;
-          loudVal.textContent = data.thresholdLoud;
+          applyServerValues(data);
           poll.initialized = true;
         }
         draw();
@@ -267,6 +309,7 @@ void SettingsServer::startServer() {
   _server.on("/", [this]() { handleRoot(); });
   _server.on("/status", [this]() { handleStatus(); });
   _server.on("/set", [this]() { handleSet(); });
+  _server.on("/reset", [this]() { handleReset(); });
   _server.begin();
   _running = true;
 }
@@ -306,17 +349,26 @@ void SettingsServer::handleStatus() {
   String json = "{";
   json += "\"level\":" + String(_currentLevel) + ",";
   json += "\"thresholdQuiet\":" + String(thresholdQuietToNormal) + ",";
-  json += "\"thresholdLoud\":" + String(thresholdNormalToLoud);
+  json += "\"thresholdLoud\":" + String(thresholdNormalToLoud) + ",";
+  json += "\"minGap\":" + String(MIN_THRESHOLD_GAP);
   json += "}";
   _server.send(200, "application/json", json);
 }
 
 void SettingsServer::handleSet() {
   if (_server.hasArg("quiet")) {
-    thresholdQuietToNormal = _server.arg("quiet").toInt();
+    long v = _server.arg("quiet").toInt();
+    thresholdQuietToNormal = v < 0 ? 0 : (uint32_t)v;
   }
   if (_server.hasArg("loud")) {
-    thresholdNormalToLoud = _server.arg("loud").toInt();
+    long v = _server.arg("loud").toInt();
+    thresholdNormalToLoud = v < 0 ? 0 : (uint32_t)v;
   }
+  enforceThresholdGap();
   _server.send(200, "text/plain", "OK");
+}
+
+void SettingsServer::handleReset() {
+  resetThresholdsToDefaults();
+  handleStatus();  // reply with the restored values so the page can move its sliders
 }

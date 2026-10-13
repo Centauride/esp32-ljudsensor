@@ -66,3 +66,7 @@ from a web page hosted by the ESP32 itself.
 
 Easiest from the web UI (see Setup above) — drag the sliders while watching
 the live level reading update in real time.
+
+The red threshold is always kept at least 10000 above the orange one (raising
+the orange slider pushes it up automatically), and **Reset thresholds** restores
+the defaults. Both the defaults and the minimum gap are set in `Config.h`.

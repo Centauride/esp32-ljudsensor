@@ -38,8 +38,15 @@
 #define COLOR_LOADING    0x9F2B68   // purple, used while connecting to WiFi
 
 // ---------- Sound thresholds ----------
-// These are now RUNTIME-adjustable (via the web UI), so they're plain
-// mutable variables rather than #define constants. Defined in Config.cpp,
-// with the values below used only as the starting defaults.
+// These are RUNTIME-adjustable (via the web UI), so they're plain mutable
+// variables rather than #define constants. Defined in Config.cpp, starting at
+// the defaults below (also what the web UI's reset button restores).
+#define DEFAULT_THRESHOLD_QUIET_TO_NORMAL  133000
+#define DEFAULT_THRESHOLD_NORMAL_TO_LOUD   300000
+#define MIN_THRESHOLD_GAP                  10000   // loud threshold stays at least this far above the quiet one
+
 extern uint32_t thresholdQuietToNormal; // orange LED turns on above this
 extern uint32_t thresholdNormalToLoud;  // red LED turns on above this
+
+void resetThresholdsToDefaults();
+void enforceThresholdGap();  // pushes the loud threshold up if it is too close to the quiet one

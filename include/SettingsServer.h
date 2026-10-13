@@ -34,4 +34,5 @@ private:
   void handleRoot();
   void handleStatus();
   void handleSet();
+  void handleReset();
 };
