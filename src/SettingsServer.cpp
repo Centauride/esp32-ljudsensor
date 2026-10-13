@@ -4,26 +4,76 @@
 
 static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html>
+<html data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sound Level Thresholds</title>
+  <script>
+    // Apply the saved theme before first paint (dark is the default)
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.dataset.theme = saved;
+    } catch (e) {}
+  </script>
   <style>
-    body { font-family: sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
-    h1 { font-size: 1.2rem; }
-    label { display: block; margin-top: 24px; font-weight: bold; }
-    input[type=range] { width: 100%; }
-    .value { font-weight: normal; color: #555; }
+    :root {
+      color-scheme: dark;
+      --bg: #121417;
+      --fg: #e8eaed;
+      --muted: #9aa0a6;
+      --card: #1e2227;
+      --border: #333a42;
+      --chart-bg: #181b1f;
+      --line: #f1f3f4;
+      --accent: #4f9cf9;
+    }
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #ffffff;
+      --fg: #1a1a1a;
+      --muted: #555555;
+      --card: #f0f0f0;
+      --border: #dddddd;
+      --chart-bg: #ffffff;
+      --line: #222222;
+      --accent: #2f7de1;
+    }
+    body { font-family: sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px;
+           background: var(--bg); color: var(--fg); }
+    .header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    h1 { font-size: 1.2rem; margin: 0; }
+    label.field { display: block; margin-top: 24px; font-weight: bold; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .value { font-weight: normal; color: var(--muted); }
     #chart { width: 100%; height: 240px; display: block; margin-top: 16px;
-             border: 1px solid #ddd; border-radius: 8px; background: #fff; }
-    .legend { font-size: 0.8rem; color: #555; margin-top: 6px; }
-    .level-box { margin-top: 24px; padding: 16px; border-radius: 8px; background: #f0f0f0; text-align: center; }
+             border: 1px solid var(--border); border-radius: 8px; background: var(--chart-bg); }
+    .legend { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+    .level-box { margin-top: 24px; padding: 16px; border-radius: 8px; background: var(--card); text-align: center; }
     .level-number { font-size: 2rem; font-weight: bold; }
+
+    /* dark mode switch */
+    .switch { display: inline-flex; align-items: center; gap: 8px; position: relative;
+              font-size: 0.85rem; color: var(--muted); cursor: pointer; user-select: none; }
+    .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .track { width: 40px; height: 22px; border-radius: 11px; background: #888;
+             position: relative; transition: background 0.2s; }
+    .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+                    border-radius: 50%; background: #fff; transition: transform 0.2s; }
+    .switch input:checked + .track { background: var(--accent); }
+    .switch input:checked + .track::after { transform: translateX(18px); }
+    .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
   </style>
 </head>
 <body>
-  <h1>Sound Level Monitor</h1>
+  <div class="header">
+    <h1>Sound Level Monitor</h1>
+    <label class="switch">
+      <span>Dark mode</span>
+      <input type="checkbox" id="themeToggle">
+      <span class="track"></span>
+    </label>
+  </div>
 
   <canvas id="chart"></canvas>
   <div class="legend">Last 60 seconds. Zones: green = quiet, orange = normal, red = too loud. Dashed lines are the thresholds.</div>
@@ -33,10 +83,10 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     <div class="level-number" id="currentLevel">-</div>
   </div>
 
-  <label>Quiet &rarr; Normal threshold <span class="value" id="quietVal"></span></label>
+  <label class="field">Quiet &rarr; Normal threshold <span class="value" id="quietVal"></span></label>
   <input type="range" id="quietSlider" min="0" max="2000000" step="1000">
 
-  <label>Normal &rarr; Loud threshold <span class="value" id="loudVal"></span></label>
+  <label class="field">Normal &rarr; Loud threshold <span class="value" id="loudVal"></span></label>
   <input type="range" id="loudSlider" min="0" max="2000000" step="1000">
 
   <script>
@@ -45,6 +95,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     const quietVal = document.getElementById('quietVal');
     const loudVal = document.getElementById('loudVal');
     const currentLevel = document.getElementById('currentLevel');
+    const themeToggle = document.getElementById('themeToggle');
     const canvas = document.getElementById('chart');
     const ctx = canvas.getContext('2d');
 
@@ -52,7 +103,21 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     const HISTORY = 240;          // points kept (about 60 s at 250 ms)
     const history = [];
 
+    // ----- theme switch -----
+    themeToggle.checked = document.documentElement.dataset.theme !== 'light';
+    themeToggle.onchange = () => {
+      const theme = themeToggle.checked ? 'dark' : 'light';
+      document.documentElement.dataset.theme = theme;
+      try { localStorage.setItem('theme', theme); } catch (e) {}
+      draw();
+    };
+
+    // ----- chart -----
     function draw() {
+      const css = getComputedStyle(document.documentElement);
+      const lineColor = css.getPropertyValue('--line').trim() || '#222';
+      const labelColor = css.getPropertyValue('--muted').trim() || '#555';
+
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
@@ -70,15 +135,15 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       const y = v => h - (v / yMax) * h;
 
       // colored zones
-      ctx.fillStyle = 'rgba(46, 204, 113, 0.15)';
+      ctx.fillStyle = 'rgba(46, 204, 113, 0.18)';
       ctx.fillRect(0, y(quiet), w, h - y(quiet));
-      ctx.fillStyle = 'rgba(255, 140, 0, 0.18)';
+      ctx.fillStyle = 'rgba(255, 140, 0, 0.22)';
       ctx.fillRect(0, y(loud), w, y(quiet) - y(loud));
-      ctx.fillStyle = 'rgba(231, 76, 60, 0.18)';
+      ctx.fillStyle = 'rgba(231, 76, 60, 0.22)';
       ctx.fillRect(0, 0, w, y(loud));
 
       // level line, newest sample on the right edge
-      ctx.strokeStyle = '#222';
+      ctx.strokeStyle = lineColor;
       ctx.lineWidth = 2;
       ctx.beginPath();
       const step = w / (HISTORY - 1);
@@ -98,7 +163,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       ctx.setLineDash([]);
 
       // axis labels
-      ctx.fillStyle = '#555';
+      ctx.fillStyle = labelColor;
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(Math.round(yMax), 4, 12);
@@ -108,6 +173,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
       ctx.fillText(loud, w - 4, y(loud) - 3);
     }
 
+    // ----- threshold sliders -----
     let sendTimer = null;
     function scheduleSend() {
       clearTimeout(sendTimer);
@@ -120,6 +186,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
     loudSlider.oninput  = () => { loudVal.textContent = loudSlider.value; scheduleSend(); draw(); };
     window.onresize = draw;
 
+    // ----- live polling -----
     async function poll() {
       try {
         const res = await fetch('/status');
