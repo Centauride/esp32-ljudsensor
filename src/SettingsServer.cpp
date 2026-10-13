@@ -244,6 +244,11 @@ bool SettingsServer::begin(LedIndicator &ledIndicator) {
         Serial.printf("  \"%s\"  signal %d dBm  channel %d\n",
                       WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i));
       }
+      WiFi.scanDelete();
+      Serial.print("Will keep retrying in the background every ");
+      Serial.print(WIFI_RETRY_INTERVAL_MS / 1000);
+      Serial.println(" s, or press the BOOT button to retry now.");
+      _lastAttemptMs = millis();
       return false;
     }
     delay(150);
@@ -251,6 +256,11 @@ bool SettingsServer::begin(LedIndicator &ledIndicator) {
     Serial.print(".");
   }
   Serial.println();
+  startServer();
+  return true;
+}
+
+void SettingsServer::startServer() {
   Serial.print("Connected. Open this in a browser: http://");
   Serial.println(WiFi.localIP());
 
@@ -259,7 +269,28 @@ bool SettingsServer::begin(LedIndicator &ledIndicator) {
   _server.on("/set", [this]() { handleSet(); });
   _server.begin();
   _running = true;
-  return true;
+}
+
+void SettingsServer::maintain() {
+  if (_running) return;  // once up, the ESP32 re-joins by itself if the link drops
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WiFi connected in the background.");
+    startServer();
+    return;
+  }
+
+  if (millis() - _lastAttemptMs >= WIFI_RETRY_INTERVAL_MS) {
+    retryNow();
+  }
+}
+
+void SettingsServer::retryNow() {
+  if (_running) return;
+  Serial.println("Retrying WiFi connection...");
+  WiFi.disconnect();
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);  // returns immediately, result is picked up by maintain()
+  _lastAttemptMs = millis();
 }
 
 void SettingsServer::handleClient() {

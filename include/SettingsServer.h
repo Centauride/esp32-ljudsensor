@@ -12,6 +12,14 @@ public:
   bool begin(LedIndicator &ledIndicator);
   void handleClient();    // call every loop() iteration (non-blocking)
 
+  // Call every loop(). While WiFi is not up, retries in the background (never
+  // blocks, so the sound LEDs keep working) and starts the web server as soon
+  // as a connection succeeds.
+  void maintain();
+
+  // Starts a fresh connection attempt right away (e.g. from a button press).
+  void retryNow();
+
   // main.cpp calls this each loop so the web page can show a live reading
   void setCurrentLevel(uint32_t level) { _currentLevel = level; }
 
@@ -19,6 +27,9 @@ private:
   WebServer _server{80};
   uint32_t _currentLevel = 0;
   bool _running = false;
+  unsigned long _lastAttemptMs = 0;
+
+  void startServer();
 
   void handleRoot();
   void handleStatus();

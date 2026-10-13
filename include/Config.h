@@ -9,7 +9,9 @@
 #endif
 #include "Secrets.h"
 
-#define WIFI_CONNECT_TIMEOUT_MS  20000  // give up after this long and run without the web UI
+#define WIFI_CONNECT_TIMEOUT_MS  20000  // boot-time attempt gives up after this long
+#define WIFI_RETRY_INTERVAL_MS   30000  // after that, retry in the background this often
+#define RETRY_BUTTON_PIN         9      // BOOT button on most ESP32-C3 boards: press to retry WiFi now
 
 // ---------- NeoPixel ----------
 #define LED_STRIP_PIN  5
