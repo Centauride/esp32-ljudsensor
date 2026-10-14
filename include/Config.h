@@ -2,16 +2,19 @@
 #include <Arduino.h>
 
 // ---------- WiFi ----------
-// WIFI_SSID and WIFI_PASSWORD live in Secrets.h, which is gitignored.
-// Each dev copies Secrets.h.example to Secrets.h and fills in their own.
-#if !__has_include("Secrets.h")
-  #error "Missing Secrets.h: copy include/Secrets.h.example to include/Secrets.h and fill in your WiFi credentials."
-#endif
-#include "Secrets.h"
+// The network name and password are not in the code: the user enters them on
+// the setup page (see WifiProvisioner) and they are kept in flash
+// (see WifiCredentials).
 
 #define WIFI_CONNECT_TIMEOUT_MS  20000  // boot-time attempt gives up after this long
 #define WIFI_RETRY_INTERVAL_MS   30000  // after that, retry in the background this often
-#define RETRY_BUTTON_PIN         9      // BOOT button on most ESP32-C3 boards: press to retry WiFi now
+#define RETRY_BUTTON_PIN         9      // BOOT button on most ESP32-C3 boards: short press = retry WiFi, long press = erase it
+#define LONG_PRESS_MS            5000   // how long to hold the button to erase the saved WiFi
+
+// ---------- WiFi setup portal ----------
+#define SETUP_AP_NAME            "SoundMeter-Setup"  // temporary WiFi network the user joins
+#define SETUP_PORTAL_TIMEOUT_MS  600000              // 10 min, then the meter carries on without WiFi
+#define MDNS_HOSTNAME            "soundmeter"        // page is reachable at http://soundmeter.local
 
 // ---------- NeoPixel ----------
 #define LED_STRIP_PIN  5
@@ -36,6 +39,7 @@
 #define COLOR_LOUD       0xFF0000   // red
 #define COLOR_OFF        0x000000   // off
 #define COLOR_LOADING    0x9F2B68   // purple, used while connecting to WiFi
+#define COLOR_SETUP      0x0000FF   // blue, pulsing while the WiFi setup portal is open
 
 // ---------- Sound thresholds ----------
 // These are RUNTIME-adjustable (via the web UI), so they're plain mutable

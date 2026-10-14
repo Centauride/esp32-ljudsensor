@@ -1,6 +1,7 @@
 #include "SettingsServer.h"
 #include "Config.h"
 #include <WiFi.h>
+#include <ESPmDNS.h>
 
 static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -256,12 +257,15 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-bool SettingsServer::begin(LedIndicator &ledIndicator) {
+bool SettingsServer::begin(LedIndicator &ledIndicator, const String &ssid, const String &password) {
+  _ssid = ssid;
+  _password = password;
+
   WiFi.mode(WIFI_STA);
   // Some ESP32-C3 mini boards have weak antennas and fail to connect at full
   // TX power; lowering it is a known fix. Remove if it causes range problems.
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(_ssid.c_str(), _password.c_str());
 
   Serial.print("Connecting to WiFi");
   unsigned long startMs = millis();
@@ -275,7 +279,7 @@ bool SettingsServer::begin(LedIndicator &ledIndicator) {
       Serial.println("  6 = disconnected / auth problem");
 
       Serial.print("Name I was looking for: \"");
-      Serial.print(WIFI_SSID);
+      Serial.print(_ssid);
       Serial.println("\"");
       Serial.println("Networks the ESP32 can actually see:");
       int found = WiFi.scanNetworks();
@@ -305,6 +309,10 @@ bool SettingsServer::begin(LedIndicator &ledIndicator) {
 void SettingsServer::startServer() {
   Serial.print("Connected. Open this in a browser: http://");
   Serial.println(WiFi.localIP());
+  if (MDNS.begin(MDNS_HOSTNAME)) {
+    MDNS.addService("http", "tcp", 80);
+    Serial.println("Or use the name: http://" MDNS_HOSTNAME ".local");
+  }
 
   _server.on("/", [this]() { handleRoot(); });
   _server.on("/status", [this]() { handleStatus(); });
@@ -315,7 +323,7 @@ void SettingsServer::startServer() {
 }
 
 void SettingsServer::maintain() {
-  if (_running) return;  // once up, the ESP32 re-joins by itself if the link drops
+  if (_running || _ssid.length() == 0) return;  // once up, the ESP32 re-joins by itself if the link drops
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("WiFi connected in the background.");
@@ -329,10 +337,10 @@ void SettingsServer::maintain() {
 }
 
 void SettingsServer::retryNow() {
-  if (_running) return;
+  if (_running || _ssid.length() == 0) return;
   Serial.println("Retrying WiFi connection...");
   WiFi.disconnect();
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);  // returns immediately, result is picked up by maintain()
+  WiFi.begin(_ssid.c_str(), _password.c_str());  // returns immediately, result is picked up by maintain()
   _lastAttemptMs = millis();
 }
 

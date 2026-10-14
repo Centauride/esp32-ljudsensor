@@ -2,14 +2,15 @@
 #include <WebServer.h>
 #include "LedIndicator.h"
 
-// Hosts a small web page (sliders + live level readout) on the ESP32's
-// own WiFi connection, so thresholds can be tuned in real time from a
-// phone or laptop browser instead of reflashing firmware each time.
+// Hosts a small web page (live graph + sliders) on the ESP32's own WiFi
+// connection, so thresholds can be tuned in real time from a phone or laptop
+// browser instead of reflashing firmware each time.
 class SettingsServer {
 public:
-  // ledIndicator is used to show a loading animation while connecting.
-  // Returns true if WiFi connected and the server started, false on timeout.
-  bool begin(LedIndicator &ledIndicator);
+  // Connects to the given network (the LEDs show a loading animation) and
+  // starts the HTTP server. Returns true if WiFi connected and the server
+  // started, false on timeout.
+  bool begin(LedIndicator &ledIndicator, const String &ssid, const String &password);
   void handleClient();    // call every loop() iteration (non-blocking)
 
   // Call every loop(). While WiFi is not up, retries in the background (never
@@ -20,6 +21,8 @@ public:
   // Starts a fresh connection attempt right away (e.g. from a button press).
   void retryNow();
 
+  bool isRunning() const { return _running; }
+
   // main.cpp calls this each loop so the web page can show a live reading
   void setCurrentLevel(uint32_t level) { _currentLevel = level; }
 
@@ -28,9 +31,10 @@ private:
   uint32_t _currentLevel = 0;
   bool _running = false;
   unsigned long _lastAttemptMs = 0;
+  String _ssid;
+  String _password;
 
   void startServer();
-
   void handleRoot();
   void handleStatus();
   void handleSet();
